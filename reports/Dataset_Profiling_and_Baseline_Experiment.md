@@ -54,9 +54,17 @@ A small baseline experiment was run on the 2,420 skincare rows. Product name, br
 
 > dry skin hydration hyaluronic acid moisturizer
 
-A maximum listed price of USD 50 was applied. The highest-ranked returned catalogue item was **Mini Plum Plump Hyaluronic Acid Moisturizer** (listed price and similarity score are retained in the experiment output / local analysis). Other high-ranked matches included hydration- and hyaluronic-acid-related products.
+A maximum listed price of USD 50 was applied. The top results were:
 
-This is a demonstration of text matching, not a validated assessment of efficacy, safety, or personal compatibility. The result may include products that are not topical skincare (for example, ingestible products), so category and product-type filtering need refinement before presenting recommendations to users.
+| Product | Brand | Price (USD) | Similarity |
+|---|---|---:|---:|
+| Mini Plum Plump Hyaluronic Acid Moisturizer | Glow Recipe | 21.00 | 0.232 |
+| Glow Sweet Glow Skin Hydration Gummies | HUM Nutrition | 26.00 | 0.132 |
+| FILLING GOOD Hyaluronic Acid Plumping Serum | Farmacy | 48.00 | 0.091 |
+| Plum Plump Hyaluronic Acid Moisturizer | Glow Recipe | 39.00 | 0.091 |
+| Omega+ Complex Moisturizer | Paula's Choice | 37.00 | 0.087 |
+
+This is a demonstration of text matching, not a validated assessment of efficacy, safety, or personal compatibility. The second result is an ingestible supplement rather than a topical skincare product. This exposes an important limitation: the broad primary category includes multiple product types. The next version must filter to suitable secondary categories (for example, moisturizers and treatments) and exclude ingestible wellness products before presenting recommendations to users.
 
 ## 6. Changes made to the project code
 
