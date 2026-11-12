@@ -22,6 +22,12 @@ This repository is being developed as part of a YuvaIntern data science internsh
 - `src/` — reusable project source code.
 - `requirements.txt` — Python dependencies.
 
+## Initial implementation
+
+An initial content-based recommendation baseline is available in `src/recommender.py`. It uses TF-IDF and cosine similarity, with optional budget and category filters. See [src/USAGE.md](src/USAGE.md) for setup and commands. Basic tests are in `tests/`.
+
+The code has not yet been validated against the user's local dataset. Confirm the detected CSV columns and run the tests before treating recommendations as project results.
+
 ## Planned workflow
 
 1. Inspect and understand the product dataset.
