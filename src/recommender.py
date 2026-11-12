@@ -57,10 +57,9 @@ def load_products(csv_path: str | Path) -> tuple[pd.DataFrame, dict[str, list[st
         if role != "price":
             result[f"_{role}"] = result[cols].fillna("").astype(str).agg(" ".join, axis=1).map(_clean_text)
 
-    result["_search_text"] = result[
-        [c for c in ["_category", "_description", "_ingredients", "_brand"] if c in result]
-    ].agg(" ".join, axis=1).map(_clean_text)
     result["_product_name"] = result[columns["name"][0]].map(_clean_text)
+    text_fields = [c for c in ["_product_name", "_category", "_description", "_ingredients", "_brand"] if c in result]
+    result["_search_text"] = result[text_fields].agg(" ".join, axis=1).map(_clean_text)
 
     price_col = columns.get("price", [None])[0]
     if price_col:
