@@ -1,79 +1,60 @@
-# Dataset Inspection and Baseline Experiment
+# Dataset Inspection and Refined Baseline Experiment
 
-**Dataset file:** `product_info.csv`  
-**Source supplied by project owner:** ZIP uploaded for this project  
+**Dataset:** Sephora `product_info.csv` supplied as a ZIP upload  
 **Inspection date:** 12 November 2026
 
-## 1. Dataset structure
+## Dataset profile
 
-The archive contained one CSV file, `product_info.csv`. It loaded successfully with **8,494 rows and 27 columns**. The dataset includes product identifiers and names, brand, ratings and review counts, ingredients, price in USD, product highlights, and three product-category levels.
-
-The dataset contains **8,494 unique product IDs**; no duplicate product IDs were found in this inspection.
-
-## 2. Missing-value inspection
+The CSV loaded with **8,494 rows and 27 columns**, including product names, brand, ingredients, prices in USD, ratings, highlights, and three category levels. There were 8,494 unique product IDs and no duplicate product IDs.
 
 | Field | Missing rows |
 |---|---:|
-| Product name | 0 |
-| Brand name | 0 |
 | Ingredients | 945 |
-| Price (USD) | 0 |
 | Rating | 278 |
-| Primary category | 0 |
 | Secondary category | 8 |
 | Tertiary category | 990 |
 | Highlights | 2,207 |
 
-Ingredient and highlight text are incomplete for some products. The recommendation workflow should therefore treat missing text as unavailable information rather than assume the ingredient or product attribute is absent.
+The primary category counts included 2,420 Skincare products, 2,369 Makeup products, 1,464 Hair products, and 1,432 Fragrance products. Price ranged from $3 to $1,900, with a median of $35. The average rating among 8,216 non-missing ratings was 4.19/5.
 
-## 3. Category distribution
+## Why the first baseline needed refinement
 
-| Primary category | Products |
-|---|---:|
-| Skincare | 2,420 |
-| Makeup | 2,369 |
-| Hair | 1,464 |
-| Fragrance | 1,432 |
-| Bath & Body | 405 |
-| Mini Size | 288 |
-| Men | 60 |
-| Tools & Brushes | 52 |
-| Gifts | 4 |
+The initial broad Skincare category search returned an ingestible hydration gummy. This showed that primary category alone is not a sufficient product-type safeguard. A skincare discovery tool should avoid recommending supplements and wellness ingestibles as topical products.
 
-Skincare represents 2,420 of the 8,494 catalogue rows. The initial recommender can filter to this category when testing skincare-specific searches.
+## Refined baseline
 
-## 4. Price and rating overview
+The code now:
+- Filters to the primary category `Skincare` by default.
+- Excludes catalogue entries whose secondary category, tertiary category, or product name indicates wellness, supplements, or ingestibles (including gummies and vitamins).
+- Supports product-type filtering and a maximum USD price.
+- Uses TF-IDF and cosine similarity across product name, brand, category labels, highlights, and ingredients.
+- Displays matching query terms as a lightweight explanation.
 
-The listed USD price had a mean of **$51.66**, median of **$35.00**, and range of **$3.00 to $1,900.00**. The upper end is much higher than the median, so price distributions should be inspected before using the mean as a typical-price description.
+## Refined example experiment
 
-There were 8,216 non-missing ratings. The mean rating was **4.19** and the median was **4.29**, on the dataset's 1–5 rating scale. Ratings are not used as proof of product suitability.
-
-## 5. Initial content-similarity experiment
-
-A small baseline experiment was run on the 2,420 skincare rows. Product name, brand, category fields, highlights, and ingredient text were combined into a text representation. TF-IDF vectors and cosine similarity were used to rank matches for the illustrative query:
-
-> dry skin hydration hyaluronic acid moisturizer
-
-A maximum listed price of USD 50 was applied. The top results were:
+Illustrative query: **“dry skin hydration hyaluronic acid moisturizer”**  
+Budget: **up to USD 50**  
+Catalogue filter: topical skincare, with the exclusions above.
 
 | Product | Brand | Price (USD) | Similarity |
 |---|---|---:|---:|
-| Mini Plum Plump Hyaluronic Acid Moisturizer | Glow Recipe | 21.00 | 0.232 |
-| Glow Sweet Glow Skin Hydration Gummies | HUM Nutrition | 26.00 | 0.132 |
-| FILLING GOOD Hyaluronic Acid Plumping Serum | Farmacy | 48.00 | 0.091 |
-| Plum Plump Hyaluronic Acid Moisturizer | Glow Recipe | 39.00 | 0.091 |
-| Omega+ Complex Moisturizer | Paula's Choice | 37.00 | 0.087 |
+| Mini Plum Plump Hyaluronic Acid Moisturizer | Glow Recipe | 21.00 | 0.249 |
+| FILLING GOOD hyaluronic acid plumping serum | Farmacy | 48.00 | 0.095 |
+| Plum Plump Hyaluronic Acid Moisturizer | Glow Recipe | 39.00 | 0.095 |
+| Omega+ Complex Moisturizer | Paula's Choice | 37.00 | 0.090 |
+| Green Tea Hyaluronic Acid Hydrating Toner | Innisfree | 25.00 | 0.089 |
 
-This is a demonstration of text matching, not a validated assessment of efficacy, safety, or personal compatibility. The second result is an ingestible supplement rather than a topical skincare product. This exposes an important limitation: the broad primary category includes multiple product types. The next version must filter to suitable secondary categories (for example, moisturizers and treatments) and exclude ingestible wellness products before presenting recommendations to users.
+These are text-similarity results from the supplied catalogue, not evidence of clinical effectiveness, ingredient compatibility, or personalised safety. Scores are not probabilities.
 
-## 6. Changes made to the project code
+## Interface and tests
 
-The recommender now recognises the dataset's `price_usd` column, in addition to common price column names. This allows the budget filter to work with the supplied Sephora file. The raw CSV remains local and is not committed to the public GitHub repository.
+A Streamlit interface is now included in `app.py`. It lets a user upload `product_info.csv`, enter a search phrase, set a maximum budget, choose a product type, and view a ranked shortlist. Basic automated tests cover exclusion of wellness ingestibles, product-type/budget filters, and the presence of explanations.
 
-## 7. Limitations and next steps
+## Limitations and next steps
 
+- This is a baseline content-matching prototype, not a clinically validated recommender.
 - Ingredient text is missing for 945 rows and highlights for 2,207 rows.
-- Text similarity can surface semantically related but unsuitable products.
-- The first experiment is not a user study and has no ground-truth relevance labels.
-- Similarity scores are not probabilities or clinical suitability scores.
-- Next, refine skincare-only product types, inspect candidate results, create test queries, and evaluate ranking quality using documented relevance judgements.
+- Category exclusions are a practical first safeguard and still require manual review.
+- The current example query is illustrative; proper evaluation needs a documented set of test queries and relevance judgements.
+- Similarity scores should not be interpreted as probabilities or medical suitability scores.
+- Run the automated tests and the app in the target environment before public deployment.
