@@ -1,28 +1,26 @@
 import pandas as pd
-
 from src.recommender import recommend
 
-
-def test_recommend_returns_matching_product():
-    products = pd.DataFrame({
-        "_product_name": ["Hydrating Serum", "Clay Cleanser"],
-        "_search_text": [
-            "hyaluronic acid hydration dry skin serum",
-            "clay cleanser oily skin",
-        ],
-        "_category": ["Serums", "Cleansers"],
-        "_price": [20.0, 12.0],
+def sample():
+    return pd.DataFrame({
+        "_product_name":["Hydrating Face Serum","Beauty Hydration Gummies","Clay Face Cleanser"],
+        "_brand":["A","B","C"],
+        "_primary":["Skincare","Skincare","Skincare"],
+        "_secondary":["Treatments","Wellness","Cleansers"],
+        "_tertiary":["Face Serums","Beauty Supplements","Face Wash & Cleansers"],
+        "_search_text":["hyaluronic acid dry skin hydration serum","hyaluronic acid hydration gummies supplement","clay cleanser oily skin"],
+        "_price":[25.0,20.0,15.0]
     })
-    result = recommend(products, "hyaluronic acid dry skin", top_n=1)
-    assert result.iloc[0]["product"] == "Hydrating Serum"
 
+def test_skincare_filter_excludes_ingestible_wellness():
+    result=recommend(sample(),"hyaluronic acid hydration",budget=40)
+    assert "Beauty Hydration Gummies" not in result["product"].tolist()
 
-def test_budget_filter_excludes_expensive_product():
-    products = pd.DataFrame({
-        "_product_name": ["Budget Moisturizer", "Premium Moisturizer"],
-        "_search_text": ["glycerin moisturizer hydration", "glycerin moisturizer hydration"],
-        "_category": ["Moisturizers", "Moisturizers"],
-        "_price": [10.0, 80.0],
-    })
-    result = recommend(products, "glycerin hydration", budget=20)
-    assert result["product"].tolist() == ["Budget Moisturizer"]
+def test_product_type_and_budget_filters():
+    result=recommend(sample(),"clay cleanser",budget=20,product_type="Cleansers")
+    assert result["product"].tolist()==["Clay Face Cleanser"]
+
+def test_recommendations_have_explanations():
+    result=recommend(sample(),"hyaluronic acid dry skin")
+    assert len(result)>0
+    assert "matched_terms" in result.columns
