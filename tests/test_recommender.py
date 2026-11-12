@@ -1,5 +1,5 @@
 import pandas as pd
-from src.recommender import recommend
+from src.recommender import load_products, recommend
 
 def sample():
     return pd.DataFrame({
@@ -24,3 +24,21 @@ def test_recommendations_have_explanations():
     result=recommend(sample(),"hyaluronic acid dry skin")
     assert len(result)>0
     assert "matched_terms" in result.columns
+
+def test_load_products_detects_non_first_alias(tmp_path):
+    source = pd.DataFrame({
+        "product_name": ["Hydrating Serum"],
+        "brand_name": ["Example"],
+        "primary_category": ["Skincare"],
+        "secondary_category": ["Treatments"],
+        "tertiary_category": ["Face Serums"],
+        "highlights": ["Hydrating serum"],
+        "ingredients": ["Hyaluronic Acid"],
+        "price_usd": [25.0],
+    })
+    path = tmp_path / "catalogue.csv"
+    source.to_csv(path, index=False)
+    loaded, columns = load_products(path)
+    assert columns["name"] == "product_name"
+    assert columns["price"] == "price_usd"
+    assert loaded.iloc[0]["_product_name"] == "Hydrating Serum"
