@@ -26,10 +26,7 @@ def _clean(value):
 def load_products(csv_path: str | Path):
     frame = pd.read_csv(csv_path, low_memory=False)
     lookup = {str(c).strip().lower(): c for c in frame.columns}
-    cols = {k: lookup[v[0]] for k,v in ALIASES.items() if any(x in lookup for x in v)}
-    for k, aliases in ALIASES.items():
-        if k not in cols:
-            cols[k] = next((lookup[x] for x in aliases if x in lookup), None)
+    cols = {k: next((lookup[x] for x in aliases if x in lookup), None) for k, aliases in ALIASES.items()}
     if cols["name"] is None: raise ValueError("Product-name column not found.")
     out = frame.copy()
     for key in ("brand","primary","secondary","tertiary","description","ingredients"):
