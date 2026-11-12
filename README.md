@@ -12,7 +12,7 @@ This repository is being developed as part of a YuvaIntern data science internsh
 
 - Weeks 1–2: internship reports prepared; the Week 2 report is available in `reports/`.
 - Weeks 3–6: planning and methodology reports prepared. These are not evidence of completed model training or measured evaluation results.
-- Dataset exploration, implementation, and model evaluation will be documented as they are actually completed.
+- The Sephora catalogue was profiled locally (8,494 source rows; 8,482 retained after empty-name and duplicate removal). The baseline recommender and four automated tests have been run successfully against the project logic and a local catalogue copy. This is an initial text-similarity prototype, not a clinically validated recommendation model.
 
 ## Repository structure
 
@@ -28,7 +28,7 @@ A Streamlit interface is available in `app.py`. Run it with `streamlit run app.p
 
 An initial content-based recommendation baseline is available in `src/recommender.py`. It uses TF-IDF and cosine similarity, with optional budget and category filters. See [src/USAGE.md](src/USAGE.md) for setup and commands. Basic tests are in `tests/`.
 
-The code has not yet been validated against the user's local dataset. Confirm the detected CSV columns and run the tests before treating recommendations as project results.
+The baseline was checked against the uploaded Sephora catalogue. Its similarity score is a text-ranking signal only; it does not measure product safety, compatibility, or clinical effectiveness.
 
 ## Planned workflow
 
@@ -46,6 +46,15 @@ Use Python 3.10 or later.
 ```bash
 python -m pip install -r requirements.txt
 ```
+
+## Deploy the app
+
+The app is configured for Streamlit Community Cloud. To publish it, sign in at [share.streamlit.io](https://share.streamlit.io/) with the GitHub account that owns this repository, choose **Create app**, then select:
+- Repository: `deepachintapalli7/personalised-skincare-recommender`
+- Branch: `main`
+- Main file path: `app.py`
+
+Deploy the app, then upload the `product_info.csv` dataset in the app itself. The raw dataset is intentionally not stored in this public repository. See the [official Streamlit deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app).
 
 ## Data and responsible use
 
