@@ -1,150 +1,82 @@
-"""Explainable content-based skincare product recommender.
-
-This is a baseline for product discovery, not medical advice. It ranks
-catalogue items from text attributes and applies optional budget/category filters.
-"""
+"""Explainable content-based skincare product recommender."""
 from __future__ import annotations
-
 import argparse
 import re
 from pathlib import Path
-
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-
-COLUMN_ALIASES = {
+ALIASES = {
     "name": ["product_name", "product", "name", "product_title"],
     "brand": ["brand_name", "brand"],
-    "category": ["primary_category", "secondary_category", "tertiary_category",
-                 "category", "product_type"],
+    "primary": ["primary_category"],
+    "secondary": ["secondary_category"],
+    "tertiary": ["tertiary_category"],
     "description": ["description", "details", "highlights", "about"],
     "ingredients": ["ingredients", "ingredient_list", "ingredient"],
-    "price": ["price", "price_usd", "sale_price", "sale_price_usd", "current_price"],
+    "price": ["price_usd", "price", "sale_price_usd", "sale_price", "current_price"],
 }
+EXCLUDED_TERMS = ("supplement", "wellness", "ingestible", "gummy", "vitamin")
 
-
-def _find_columns(frame: pd.DataFrame) -> dict[str, list[str]]:
-    normalised = {str(c).strip().lower(): c for c in frame.columns}
-    found: dict[str, list[str]] = {}
-    for role, aliases in COLUMN_ALIASES.items():
-        matches = [normalised[a] for a in aliases if a in normalised]
-        if matches:
-            found[role] = matches
-    return found
-
-
-def _clean_text(value: object) -> str:
-    if pd.isna(value):
-        return ""
+def _clean(value):
+    if pd.isna(value): return ""
     return re.sub(r"\s+", " ", str(value)).strip()
 
+def load_products(csv_path: str | Path):
+    frame = pd.read_csv(csv_path, low_memory=False)
+    lookup = {str(c).strip().lower(): c for c in frame.columns}
+    cols = {k: lookup[v[0]] for k,v in ALIASES.items() if any(x in lookup for x in v)}
+    for k, aliases in ALIASES.items():
+        if k not in cols:
+            cols[k] = next((lookup[x] for x in aliases if x in lookup), None)
+    if cols["name"] is None: raise ValueError("Product-name column not found.")
+    out = frame.copy()
+    for key in ("brand","primary","secondary","tertiary","description","ingredients"):
+        c=cols.get(key)
+        out["_"+key] = out[c].map(_clean) if c else ""
+    out["_product_name"] = out[cols["name"]].map(_clean)
+    out["_price"] = pd.to_numeric(out[cols["price"]], errors="coerce") if cols.get("price") else float("nan")
+    out["_search_text"] = out[["_product_name","_brand","_primary","_secondary","_tertiary","_description","_ingredients"]].agg(" ".join,axis=1).map(_clean)
+    out=out[out["_product_name"].ne("")].drop_duplicates(subset=["_product_name","_search_text"]).reset_index(drop=True)
+    return out, cols
 
-def load_products(csv_path: str | Path) -> tuple[pd.DataFrame, dict[str, list[str]]]:
-    """Load a local product CSV and create a clean, combined text field."""
-    frame = pd.read_csv(csv_path)
-    columns = _find_columns(frame)
-    if not columns.get("name"):
-        raise ValueError(
-            "Could not identify a product-name column. Expected one of: "
-            + ", ".join(COLUMN_ALIASES["name"])
-        )
-
-    result = frame.copy()
-    for role, cols in columns.items():
-        if role != "price":
-            result[f"_{role}"] = result[cols].fillna("").astype(str).agg(" ".join, axis=1).map(_clean_text)
-
-    result["_product_name"] = result[columns["name"][0]].map(_clean_text)
-    text_fields = [c for c in ["_product_name", "_category", "_description", "_ingredients", "_brand"] if c in result]
-    result["_search_text"] = result[text_fields].agg(" ".join, axis=1).map(_clean_text)
-
-    price_col = columns.get("price", [None])[0]
-    if price_col:
-        result["_price"] = pd.to_numeric(
-            result[price_col].astype(str).str.replace(r"[^0-9.]", "", regex=True),
-            errors="coerce",
-        )
-    else:
-        result["_price"] = float("nan")
-
-    result = result[result["_product_name"].ne("")].drop_duplicates(
-        subset=["_product_name", "_search_text"]
-    ).reset_index(drop=True)
-    if result.empty:
-        raise ValueError("No usable product rows found after basic cleaning.")
-    return result, columns
-
-
-def recommend(
-    products: pd.DataFrame,
-    query: str,
-    budget: float | None = None,
-    category: str | None = None,
-    top_n: int = 10,
-) -> pd.DataFrame:
-    """Rank products by text similarity and return simple match explanations."""
-    if not query.strip():
-        raise ValueError("Enter a skin concern, ingredient preference, or product need.")
-    if top_n < 1:
-        raise ValueError("top_n must be at least 1.")
-
-    candidates = products.copy()
+def recommend(products, query, budget=None, product_type=None, top_n=10, skincare_only=True):
+    if not query.strip(): raise ValueError("Enter a product need or ingredient preference.")
+    if top_n < 1: raise ValueError("top_n must be positive.")
+    c=products.copy()
+    if skincare_only and "_primary" in c:
+        c=c[c["_primary"].str.casefold().eq("skincare")]
+        combined=(c["_secondary"]+" "+c["_tertiary"]+" "+c["_product_name"]).str.casefold()
+        excluded="|".join(map(re.escape,EXCLUDED_TERMS))
+        c=c[~combined.str.contains(excluded,na=False)]
+    if product_type:
+        combined=(c["_secondary"]+" "+c["_tertiary"]).str.casefold()
+        c=c[combined.str.contains(re.escape(product_type.casefold()),na=False)]
     if budget is not None:
-        if "_price" not in candidates or candidates["_price"].notna().sum() == 0:
-            raise ValueError("A usable price column was not found, so budget filtering is unavailable.")
-        candidates = candidates[candidates["_price"].le(budget)]
-    if category:
-        if "_category" not in candidates:
-            raise ValueError("A product category column was not found.")
-        candidates = candidates[candidates["_category"].str.contains(
-            re.escape(category), case=False, na=False
-        )]
-    if candidates.empty:
-        return pd.DataFrame(columns=["product", "price", "similarity", "matched_terms"])
+        if c["_price"].notna().sum()==0: raise ValueError("No usable price data for budget filtering.")
+        c=c[c["_price"].le(budget)]
+    if c.empty: return pd.DataFrame(columns=["product","brand","price_usd","similarity","matched_terms"])
+    vec=TfidfVectorizer(stop_words="english",ngram_range=(1,2))
+    matrix=vec.fit_transform(c["_search_text"].fillna("").tolist()+[query])
+    scores=cosine_similarity(matrix[-1],matrix[:-1]).ravel()
+    qterms=set(re.findall(r"[a-zA-Z][a-zA-Z0-9-]+",query.casefold()))
+    c=c.copy(); c["_score"]=scores
+    c=c.sort_values(["_score","_price"],ascending=[False,True]).head(top_n)
+    def matches(text):
+        terms=set(re.findall(r"[a-zA-Z][a-zA-Z0-9-]+",text.casefold()))
+        return ", ".join(sorted(qterms & terms)) or "overall text similarity"
+    return pd.DataFrame({
+        "product":c["_product_name"],"brand":c["_brand"],"price_usd":c["_price"],
+        "similarity":c["_score"].round(3),"matched_terms":c["_search_text"].map(matches)
+    }).reset_index(drop=True)
 
-    corpus = candidates["_search_text"].fillna("").tolist()
-    vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
-    matrix = vectorizer.fit_transform(corpus + [query])
-    scores = cosine_similarity(matrix[-1], matrix[:-1]).ravel()
-    terms = set(re.findall(r"[a-zA-Z][a-zA-Z0-9-]+", query.lower()))
-
-    candidates = candidates.copy()
-    candidates["_score"] = scores
-    candidates = candidates.sort_values("_score", ascending=False).head(top_n)
-
-    def explanation(text: str) -> str:
-        words = set(re.findall(r"[a-zA-Z][a-zA-Z0-9-]+", text.lower()))
-        return ", ".join(sorted(terms & words)) or "overall text similarity"
-
-    output = pd.DataFrame({
-        "product": candidates["_product_name"],
-        "price": candidates["_price"],
-        "similarity": candidates["_score"].round(3),
-        "matched_terms": candidates["_search_text"].map(explanation),
-    })
-    return output.reset_index(drop=True)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Find skincare products by catalogue text.")
-    parser.add_argument("--data", required=True, help="Path to local product CSV")
-    parser.add_argument("--query", required=True, help="Concern, ingredient preference, or product need")
-    parser.add_argument("--budget", type=float, default=None, help="Maximum price in dataset currency")
-    parser.add_argument("--category", default=None, help="Optional category filter")
-    parser.add_argument("--top", type=int, default=10, help="Number of recommendations")
-    args = parser.parse_args()
-
-    products, columns = load_products(args.data)
-    print(f"Loaded {len(products)} products.")
-    print(f"Detected columns: {columns}")
-    results = recommend(products, args.query, args.budget, args.category, args.top)
-    if results.empty:
-        print("No products matched those filters. Try a broader query or budget.")
-    else:
-        print(results.to_string(index=False))
-
-
-if __name__ == "__main__":
-    main()
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--data",required=True); p.add_argument("--query",required=True)
+    p.add_argument("--budget",type=float); p.add_argument("--type",dest="product_type")
+    p.add_argument("--top",type=int,default=10)
+    a=p.parse_args(); products,cols=load_products(a.data)
+    print(f"Loaded {len(products)} catalogue rows. Detected: {cols}")
+    print(recommend(products,a.query,a.budget,a.product_type,a.top).to_string(index=False))
+if __name__=="__main__": main()
