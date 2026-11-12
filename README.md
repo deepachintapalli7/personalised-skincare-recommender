@@ -24,6 +24,8 @@ This repository is being developed as part of a YuvaIntern data science internsh
 
 ## Initial implementation
 
+A Streamlit interface is available in `app.py`. Run it with `streamlit run app.py`, then upload the local `product_info.csv` file in the app. The baseline filters the catalogue to skincare and excludes common wellness/ingestible listings, with optional product-type and budget filters.
+
 An initial content-based recommendation baseline is available in `src/recommender.py`. It uses TF-IDF and cosine similarity, with optional budget and category filters. See [src/USAGE.md](src/USAGE.md) for setup and commands. Basic tests are in `tests/`.
 
 The code has not yet been validated against the user's local dataset. Confirm the detected CSV columns and run the tests before treating recommendations as project results.
