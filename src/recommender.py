@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import re
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -22,7 +21,7 @@ COLUMN_ALIASES = {
                  "category", "product_type"],
     "description": ["description", "details", "highlights", "about"],
     "ingredients": ["ingredients", "ingredient_list", "ingredient"],
-    "price": ["price", "sale_price", "current_price"],
+    "price": ["price", "price_usd", "sale_price", "sale_price_usd", "current_price"],
 }
 
 
